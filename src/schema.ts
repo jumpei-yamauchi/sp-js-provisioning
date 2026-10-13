@@ -51,7 +51,10 @@ export interface ITermSet {
 }
 
 export interface ITaxonomy {
-  TermGroup: ITermGroup
+  /** Defaults to TermStore. SiteCollection uses SharePoint's managed group. */
+  Scope?: 'TermStore' | 'SiteCollection'
+  /** Required for TermStore; ignored for SiteCollection. */
+  TermGroup?: ITermGroup
   TermSets: ITermSet[]
 }
 

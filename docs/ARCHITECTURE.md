@@ -194,6 +194,22 @@ Handler convention:
 - Most handlers process items sequentially with promise `reduce`.
 - Handler errors should be thrown so `WebProvisioner` can wrap them in `ProvisioningError`.
 
+### `Taxonomy`
+
+File: `src/handlers/taxonomy.ts`
+
+- Uses JSOM and the default site collection term store.
+- `Scope: "TermStore"` (the default) requires a named `TermGroup` with an explicit
+  ID, creating it when missing.
+- `Scope: "SiteCollection"` calls `getSiteCollectionGroup` with the current
+  `ClientContext` site and `createIfMissing: true`. SharePoint manages the group's
+  name and ID, so the template's `TermGroup` is ignored.
+- Site collection term-set lookups are restricted to that managed group.
+- Creates term sets and terms with template IDs, applies custom properties and
+  sort order, and optionally backfills missing custom properties on existing terms.
+- Requires browser/SPFx JSOM support and appropriate taxonomy permissions; group
+  creation/query errors propagate to the provisioner.
+
 ### `SiteFields`
 
 File: `src/handlers/sitefields.ts`

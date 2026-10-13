@@ -104,6 +104,41 @@ See [`sample-schemas/`](./sample-schemas) for a small end-to-end example and
 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for a deep dive into every handler,
 the token system and the error model.
 
+### Site collection taxonomy
+
+Set `Taxonomy.Scope` to `"SiteCollection"` to create term sets in the current
+site collection's local term group:
+
+```json
+{
+  "Taxonomy": {
+    "Scope": "SiteCollection",
+    "TermSets": [
+      {
+        "Id": "f1e2d3c4-5678-490a-bcde-1234567890ab",
+        "Name": "Project categories",
+        "Terms": [
+          {
+            "Id": "a1b2c3d4-5678-490a-bcde-1234567890ab",
+            "Name": "Internal"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+SharePoint creates the site collection group if needed and assigns its name and
+ID; `TermGroup` is ignored in this scope. Subwebs use their containing site
+collection's group. Term-set and term IDs, custom properties, and sort order still
+come from the template, and reapplying it reuses existing objects.
+
+Omitting `Scope` (or using `"TermStore"`) preserves the existing behavior and
+requires `TermGroup: { "Id": "...", "Name": "..." }`. Both modes use the default
+site collection term store and require the corresponding SharePoint taxonomy
+permissions. Taxonomy provisioning uses JSOM and runs in the browser/SPFx.
+
 ### Seeded list rows (`DataRows`)
 
 Lists can be seeded with items. Rows are upserted by `KeyColumn`: when a row with the same

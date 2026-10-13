@@ -665,6 +665,72 @@
             },
             "type": "object"
         },
+        "ITaxonomy": {
+            "properties": {
+                "Scope": {
+                    "type": "string",
+                    "enum": ["TermStore", "SiteCollection"],
+                    "default": "TermStore",
+                    "description": "SiteCollection uses SharePoint's managed local group; TermStore requires TermGroup."
+                },
+                "TermGroup": {
+                    "$ref": "#/definitions/ITermGroup"
+                },
+                "TermSets": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ITermSet"
+                    }
+                }
+            },
+            "required": ["TermSets"],
+            "if": {
+                "properties": {
+                    "Scope": { "const": "SiteCollection" }
+                },
+                "required": ["Scope"]
+            },
+            "else": {
+                "required": ["TermGroup"]
+            },
+            "type": "object"
+        },
+        "ITermGroup": {
+            "properties": {
+                "Id": { "type": "string" },
+                "Name": { "type": "string" }
+            },
+            "required": ["Id", "Name"],
+            "type": "object"
+        },
+        "ITermSet": {
+            "properties": {
+                "Id": { "type": "string" },
+                "Name": { "type": "string" },
+                "Description": { "type": "string" },
+                "IsOpenForTermCreation": { "type": "boolean" },
+                "UpdateExistingTerms": { "type": "boolean" },
+                "Terms": {
+                    "type": "array",
+                    "items": { "$ref": "#/definitions/ITerm" }
+                }
+            },
+            "required": ["Id", "Name"],
+            "type": "object"
+        },
+        "ITerm": {
+            "properties": {
+                "Id": { "type": "string" },
+                "Name": { "type": "string" },
+                "SortOrder": { "type": "number" },
+                "CustomProperties": {
+                    "type": "object",
+                    "additionalProperties": { "type": "string" }
+                }
+            },
+            "required": ["Id", "Name"],
+            "type": "object"
+        },
         "ReadableStream<Uint8Array>": {
             "properties": {
                 "locked": {
@@ -743,6 +809,9 @@
             },
             "type": "array"
         },
+        "Taxonomy": {
+            "$ref": "#/definitions/ITaxonomy"
+        },
         "Version": {
             "type": "string"
         },
@@ -752,4 +821,3 @@
     },
     "type": "object"
 }
-

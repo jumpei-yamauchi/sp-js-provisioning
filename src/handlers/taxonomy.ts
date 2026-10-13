@@ -11,8 +11,8 @@ import { HandlerBase } from './handlerbase'
  *
  * Provisions a term group, its term sets and terms into the default site
  * collection term store using JSOM (so explicit term-set/term GUIDs from the
- * template are preserved). Idempotent: anything that already exists by ID is
- * left untouched.
+ * template are preserved). Supports named term-store groups and SharePoint's
+ * managed site collection group. Existing objects are reused by ID.
  */
 export class Taxonomy extends HandlerBase {
   public jsomContext: JsomContext
@@ -39,29 +39,70 @@ export class Taxonomy extends HandlerBase {
     context: ProvisioningContext
   ): Promise<void> {
     this.context = context
-    const spfxJsom = await initSpfxJsom(context.web.ServerRelativeUrl, {
-      loadTaxonomy: true
-    })
+    const spfxJsom = await this.initializeJsom(context.web.ServerRelativeUrl)
     this.jsomContext = spfxJsom.jsomContext
     this.termStore = spfxJsom.defaultTermStore
     super.scope_started()
     try {
+      if (
+        taxonomy.Scope !== undefined &&
+        taxonomy.Scope !== 'TermStore' &&
+        taxonomy.Scope !== 'SiteCollection'
+      ) {
+        throw new Error(`Unsupported taxonomy scope: ${taxonomy.Scope}`)
+      }
       if (!this.termStore) {
         throw new Error('No default site collection term store is available.')
       }
       this.jsomContext.clientContext.load(this.termStore)
-      await ExecuteJsomQuery(this.jsomContext)
+      await this.executeQuery()
       const lcid = this.termStore.get_defaultLanguage()
 
-      const group = await this.ensureGroup(taxonomy.TermGroup)
+      let group: SP.Taxonomy.TermGroup
+      if (taxonomy.Scope === 'SiteCollection') {
+        group = await this.ensureSiteCollectionGroup()
+      } else {
+        if (!taxonomy.TermGroup) {
+          throw new Error('Taxonomy.TermGroup is required for TermStore scope.')
+        }
+        group = await this.ensureGroup(taxonomy.TermGroup)
+      }
       for (const termSetDef of taxonomy.TermSets ?? []) {
-        const termSet = await this.ensureTermSet(group, termSetDef, lcid)
+        const termSet = await this.ensureTermSet(
+          group,
+          termSetDef,
+          lcid,
+          taxonomy.Scope === 'SiteCollection'
+        )
         await this.ensureTerms(termSet, termSetDef, lcid)
       }
     } catch (error) {
       super.scope_ended(error)
       throw error
     }
+  }
+
+  protected initializeJsom(webUrl: string) {
+    return initSpfxJsom(webUrl, { loadTaxonomy: true })
+  }
+
+  protected async executeQuery(): Promise<void> {
+    await ExecuteJsomQuery(this.jsomContext)
+  }
+
+  private async ensureSiteCollectionGroup(): Promise<SP.Taxonomy.TermGroup> {
+    super.log_info(
+      'ensureSiteCollectionGroup',
+      'Ensuring site collection term group'
+    )
+    const site = this.jsomContext.clientContext.get_site()
+    const group = this.termStore.getSiteCollectionGroup(site, true)
+    this.jsomContext.clientContext.load(group)
+    await this.executeQuery()
+    if (group.get_serverObjectIsNull()) {
+      throw new Error('No site collection term group is available.')
+    }
+    return group
   }
 
   /**
@@ -84,7 +125,7 @@ export class Taxonomy extends HandlerBase {
     super.log_info('ensureGroup', `Creating term group ${groupDef.Name}`)
     const group = this.termStore.createGroup(groupDef.Name, groupId)
     this.termStore.commitAll()
-    await ExecuteJsomQuery(this.jsomContext)
+    await this.executeQuery()
     return group
   }
 
@@ -95,14 +136,18 @@ export class Taxonomy extends HandlerBase {
    * @param group - Parent term group
    * @param termSetDef - Term set definition
    * @param lcid - Default language of the term store
+   * @param siteCollection - Whether to restrict lookups to the site collection group
    */
   private async ensureTermSet(
     group: SP.Taxonomy.TermGroup,
     termSetDef: ITermSet,
-    lcid: number
+    lcid: number,
+    siteCollection: boolean = false
   ): Promise<SP.Taxonomy.TermSet> {
     const termSetId = new SP.Guid(termSetDef.Id)
-    const existing = this.termStore.getTermSet(termSetId)
+    const existing = siteCollection
+      ? group.get_termSets().getById(termSetId)
+      : this.termStore.getTermSet(termSetId)
     if (await this.exists(existing)) {
       super.log_info(
         'ensureTermSet',
@@ -119,7 +164,7 @@ export class Taxonomy extends HandlerBase {
       termSet.set_isOpenForTermCreation(termSetDef.IsOpenForTermCreation)
     }
     this.termStore.commitAll()
-    await ExecuteJsomQuery(this.jsomContext)
+    await this.executeQuery()
     return termSet
   }
 
@@ -163,7 +208,7 @@ export class Taxonomy extends HandlerBase {
     }
     if (pendingCommit) {
       this.termStore.commitAll()
-      await ExecuteJsomQuery(this.jsomContext)
+      await this.executeQuery()
     }
     await this.applySortOrder(termSet, terms)
   }
@@ -199,7 +244,7 @@ export class Taxonomy extends HandlerBase {
     const desired = termDef.CustomProperties
     if (!desired || Object.keys(desired).length === 0) return false
     this.jsomContext.clientContext.load(term)
-    await ExecuteJsomQuery(this.jsomContext)
+    await this.executeQuery()
     let current: Record<string, string> = {}
     try {
       current = term.get_customProperties() || {}
@@ -233,7 +278,7 @@ export class Taxonomy extends HandlerBase {
     if (ordered.length < 2) return
     termSet.set_customSortOrder(ordered.map((term) => term.Id).join(':'))
     this.termStore.commitAll()
-    await ExecuteJsomQuery(this.jsomContext)
+    await this.executeQuery()
   }
 
   /**
@@ -244,7 +289,7 @@ export class Taxonomy extends HandlerBase {
   private async exists(clientObject: SP.ClientObject): Promise<boolean> {
     this.jsomContext.clientContext.load(clientObject)
     try {
-      await ExecuteJsomQuery(this.jsomContext)
+      await this.executeQuery()
       return !clientObject.get_serverObjectIsNull()
     } catch {
       return false
