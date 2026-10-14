@@ -9,6 +9,20 @@ const manifest = JSON.parse(
 
 const pnpPackages = ['@pnp/core', '@pnp/logging', '@pnp/queryable', '@pnp/sp']
 
+describe('package manifest: Git dependency build', () => {
+  it('builds during Git dependency preparation and package creation', () => {
+    assert.equal(manifest.scripts.prepare, 'npm run build')
+    assert.equal(manifest.scripts.prepack, 'npm run build')
+  })
+
+  it('ships the directory containing both declared entrypoints', () => {
+    assert.equal(manifest.main, './lib/index.js')
+    assert.equal(manifest.types, './lib/index.d.ts')
+    assert.ok(manifest.files.includes('lib'))
+    assert.ok(manifest.devDependencies.typescript)
+  })
+})
+
 describe('package manifest: PnPjs single instance', () => {
   it('declares the PnPjs packages as peers, not as hard dependencies', () => {
     // The published typings expose `IWeb` (a class with protected members) in

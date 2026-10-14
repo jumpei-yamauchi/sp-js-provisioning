@@ -24,6 +24,21 @@ constructor. Declaring the `@pnp/*` packages as peers lets the package manager e
 single instance. npm 7+ installs them for you; with `legacy-peer-deps` or Yarn 1, install them
 explicitly as shown above.
 
+### Installing a fork or Git branch
+
+```shell
+npm install "git+https://github.com/jumpei-yamauchi/sp-js-provisioning.git#<branch-or-commit>"
+```
+
+Git dependencies are built by the package's `prepare` lifecycle script. npm
+installs the build dependencies and generates the JavaScript and declarations in
+`lib/` before packaging the dependency; build output does not need to be committed.
+Allow lifecycle scripts to run (do not use `--ignore-scripts` for a Git install).
+Registry packages already include this build output.
+
+After updating the fork, reinstall using the new commit SHA so npm does not reuse
+the previously locked revision.
+
 ## Quick start
 
 ```ts

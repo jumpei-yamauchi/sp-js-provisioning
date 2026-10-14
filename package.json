@@ -56,6 +56,7 @@
     "watch": "tsc --watch",
     "lint": "eslint --ext .ts ./src --color --fix && prettier '**/*.ts*' --write --loglevel silent",
     "prepack": "npm run build",
+    "prepare": "npm run build",
     "test": "tsx --tsconfig tests/tsconfig.json --test \"tests/unit/*.test.ts\"",
     "typecheck:tests": "tsc -p tests/tsconfig.json",
     "postversion": "tsc && npm publish",
